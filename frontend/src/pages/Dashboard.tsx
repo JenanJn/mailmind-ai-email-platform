@@ -31,9 +31,11 @@ export default function Dashboard() {
   const [insights, setInsights] = useState<AIInsight[]>([])
   const [actionQueue, setActionQueue] = useState<EmailListItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const load = async () => {
     setLoading(true)
+    setError(null)
     try {
       const [sum, trend, ins, emails] = await Promise.all([
         analyticsApi.summary(),
@@ -46,7 +48,7 @@ export default function Dashboard() {
       setInsights(ins.insights)
       setActionQueue(emails.items)
     } catch {
-      // silently handle
+      setError('Could not load dashboard data.')
     } finally {
       setLoading(false)
     }
@@ -55,6 +57,18 @@ export default function Dashboard() {
   useEffect(() => { load() }, [])
 
   if (loading) return <LoadingSkeleton />
+
+  if (error) {
+    return (
+      <div className="p-6 flex flex-col items-center justify-center min-h-64 gap-4 text-center">
+        <AlertTriangle className="w-10 h-10 text-amber-400" />
+        <p className="text-sm text-slate-300">{error}</p>
+        <button onClick={load} className="btn-secondary flex items-center gap-1.5 text-xs">
+          <RefreshCw className="w-3.5 h-3.5" /> Retry
+        </button>
+      </div>
+    )
+  }
 
   const PRIORITY_COLORS: Record<string, string> = { high: '#EF4444', medium: '#F59E0B', low: '#10B981' }
 

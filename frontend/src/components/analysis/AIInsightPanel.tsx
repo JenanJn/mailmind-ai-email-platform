@@ -1,4 +1,4 @@
-import { ShieldCheck, Zap, Target, Clock, Brain, TrendingUp } from 'lucide-react'
+import { ShieldCheck, Zap, Target, Clock, Brain, TrendingUp, AlertTriangle } from 'lucide-react'
 import clsx from 'clsx'
 import type { Analysis, Entity } from '../../types'
 import PriorityBadge from '../email/PriorityBadge'
@@ -24,6 +24,13 @@ export default function AIInsightPanel({ analysis, entities }: Props) {
           <Brain className="w-4 h-4 text-blue-400" />
           <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">AI Classification</span>
         </div>
+
+        {analysis.category_confidence !== null && analysis.category_confidence < 0.55 && (
+          <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-200">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-amber-400" />
+            <span>Low classification confidence. Review the category before relying on it.</span>
+          </div>
+        )}
 
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-3 flex-1">
@@ -79,26 +86,6 @@ export default function AIInsightPanel({ analysis, entities }: Props) {
               <p className="label">Urgency</p>
               <p className="text-sm text-white capitalize">{analysis.urgency_level ?? '—'}</p>
             </div>
-            <div>
-              <p className="label">Action Required</p>
-              <span className={clsx(
-                'text-xs font-bold px-2 py-0.5 rounded-full',
-                analysis.action_required
-                  ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-                  : 'bg-slate-700 text-slate-400',
-              )}>
-                {analysis.action_required ? '✓ Yes' : '✗ No'}
-              </span>
-            </div>
-            {analysis.deadline_text && (
-              <div>
-                <p className="label">Deadline / Date</p>
-                <div className="flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-amber-400" />
-                  <p className="text-sm text-amber-300 font-medium">{analysis.deadline_text}</p>
-                </div>
-              </div>
-            )}
           </div>
 
           <PriorityScoreRing
@@ -106,6 +93,32 @@ export default function AIInsightPanel({ analysis, entities }: Props) {
             level={analysis.priority_level}
           />
         </div>
+      </div>
+
+      {/* Action and deadline context */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className={clsx(
+          'card border',
+          analysis.action_required ? 'border-blue-500/30 bg-blue-500/5' : 'border-slate-700',
+        )}>
+          <div className="flex items-center gap-2 mb-3">
+            <Zap className="w-4 h-4 text-blue-400" />
+            <span className="text-xs font-bold uppercase tracking-wider text-blue-400">Action Required</span>
+          </div>
+          <p className="text-sm font-semibold text-white">
+            {analysis.action_required ? 'Yes, this email needs a response or action.' : 'No action detected.'}
+          </p>
+        </div>
+
+        {analysis.deadline_text && (
+          <div className="card border border-amber-500/30 bg-amber-500/5">
+            <div className="flex items-center gap-2 mb-3">
+              <Clock className="w-4 h-4 text-amber-400" />
+              <span className="text-xs font-bold uppercase tracking-wider text-amber-400">Deadline</span>
+            </div>
+            <p className="text-sm font-semibold text-amber-200">{analysis.deadline_text}</p>
+          </div>
+        )}
       </div>
 
       {/* Why this priority */}
@@ -133,7 +146,7 @@ export default function AIInsightPanel({ analysis, entities }: Props) {
         <div className="card">
           <div className="flex items-center gap-2 mb-3">
             <Target className="w-4 h-4 text-cyan-400" />
-            <span className="text-xs font-bold text-cyan-400 uppercase tracking-wider">Key Points</span>
+            <span className="text-xs font-bold text-cyan-400 uppercase tracking-wider">What This Email Means</span>
           </div>
           <ul className="space-y-2">
             {analysis.key_points.map((point, i) => (

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Search, SlidersHorizontal, X, ChevronLeft, ChevronRight, Inbox } from 'lucide-react'
+import { Search, SlidersHorizontal, X, ChevronLeft, ChevronRight, Inbox, AlertCircle, RefreshCw } from 'lucide-react'
 import { emailsApi } from '../api/emails'
 import type { EmailListItem, PaginatedEmails } from '../types'
 import EmailCard from '../components/email/EmailCard'
@@ -20,6 +20,7 @@ export default function EmailInbox() {
   const [emails, setEmails] = useState<EmailListItem[]>([])
   const [pagination, setPagination] = useState({ total: 0, page: 1, totalPages: 1 })
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   // Filters from URL params
   const search = searchParams.get('search') ?? ''
@@ -57,6 +58,7 @@ export default function EmailInbox() {
 
   const load = useCallback(async () => {
     setLoading(true)
+    setError(null)
     try {
       const data = await emailsApi.list({
         page,
@@ -69,7 +71,7 @@ export default function EmailInbox() {
       setEmails(data.items)
       setPagination({ total: data.total, page: data.page, totalPages: data.total_pages })
     } catch {
-      setEmails([])
+      setError('Could not load your inbox.')
     } finally {
       setLoading(false)
     }
@@ -200,6 +202,14 @@ export default function EmailInbox() {
                 </div>
               </div>
             ))}
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center h-64 gap-4 text-center text-slate-500">
+            <AlertCircle className="w-12 h-12 opacity-40 text-amber-400" />
+            <p className="text-sm font-medium text-slate-300">{error}</p>
+            <button onClick={load} className="btn-secondary flex items-center gap-1.5 text-xs">
+              <RefreshCw className="w-3.5 h-3.5" /> Retry
+            </button>
           </div>
         ) : emails.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-slate-500">

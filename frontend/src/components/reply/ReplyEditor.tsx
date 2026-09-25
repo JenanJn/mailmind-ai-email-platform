@@ -9,6 +9,7 @@ import {
   ChevronUp,
   Sparkles,
   Send,
+  Copy,
 } from 'lucide-react'
 import clsx from 'clsx'
 import type { Reply, ReplyVersion } from '../../types'
@@ -39,6 +40,7 @@ export default function ReplyEditor({ emailId, reply, onReplyUpdate }: Props) {
   const [history, setHistory] = useState<ReplyVersion[]>(reply?.versions ?? [])
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     setContent(reply?.current_content ?? '')
@@ -106,6 +108,17 @@ export default function ReplyEditor({ emailId, reply, onReplyUpdate }: Props) {
     }
   }
 
+  const handleCopy = async () => {
+    if (!reply?.current_content) return
+    try {
+      await navigator.clipboard.writeText(reply.current_content)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      setError('Could not copy the reply. Please select and copy it manually.')
+    }
+  }
+
   const handleCancelEdit = () => {
     setContent(reply?.current_content ?? '')
     setIsEditing(false)
@@ -129,14 +142,19 @@ export default function ReplyEditor({ emailId, reply, onReplyUpdate }: Props) {
       <div className="card">
         <div className="flex items-center gap-2 mb-4">
           <Sparkles className="w-4 h-4 text-blue-400" />
-          <span className="text-sm font-bold text-white">AI Smart Reply</span>
+          <span className="text-sm font-bold text-white">AI Generated Reply</span>
         </div>
+        {error && (
+          <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+            {error}
+          </div>
+        )}
         <div className="text-center py-8">
           <div className="w-12 h-12 rounded-full bg-blue-600/20 flex items-center justify-center mx-auto mb-3">
             <Sparkles className="w-6 h-6 text-blue-400" />
           </div>
           <p className="text-sm text-slate-400 mb-4">
-            Generate a context-aware reply tailored to this email's category and intent.
+            {error ? 'Reply generation failed. Try again when you are ready.' : 'Generate a context-aware reply tailored to this email\'s category and intent.'}
           </p>
           <button
             onClick={handleGenerate}
@@ -148,7 +166,7 @@ export default function ReplyEditor({ emailId, reply, onReplyUpdate }: Props) {
             ) : (
               <Sparkles className="w-4 h-4" />
             )}
-            Generate Smart Reply
+            {error ? 'Retry Generation' : 'Generate Smart Reply'}
           </button>
         </div>
       </div>
@@ -161,26 +179,40 @@ export default function ReplyEditor({ emailId, reply, onReplyUpdate }: Props) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-blue-400" />
-          <span className="text-sm font-bold text-white">AI Smart Reply</span>
-          {reply.is_user_edited && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-              Edited
-            </span>
-          )}
+          <span className="text-sm font-bold text-white">AI Generated Reply</span>
+          <span className={clsx(
+            'text-xs px-2 py-0.5 rounded-full border',
+            reply.is_user_edited
+              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+              : 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+          )}>
+            {reply.is_user_edited ? 'Manually Edited' : 'AI Generated'}
+          </span>
+          <span className="text-xs text-slate-500">Tone: {reply.tone}</span>
           {saved && (
             <span className="text-xs text-emerald-400 flex items-center gap-1">
               <Check className="w-3 h-3" /> Saved
             </span>
           )}
         </div>
-        <button
-          onClick={loadHistory}
-          className="btn-ghost flex items-center gap-1 text-xs"
-        >
-          <History className="w-3.5 h-3.5" />
-          History
-          {showHistory ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handleCopy}
+            className="btn-ghost flex items-center gap-1 text-xs"
+            title="Copy reply"
+          >
+            <Copy className="w-3.5 h-3.5" />
+            {copied ? 'Copied' : 'Copy Reply'}
+          </button>
+          <button
+            onClick={loadHistory}
+            className="btn-ghost flex items-center gap-1 text-xs"
+          >
+            <History className="w-3.5 h-3.5" />
+            History
+            {showHistory ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+          </button>
+        </div>
       </div>
 
       {/* Error */}

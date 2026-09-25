@@ -31,12 +31,26 @@ export default function EmailCard({ email }: Props) {
 
       {/* Main content */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-start justify-between gap-2 mb-1">
+        <div className="flex items-start justify-between gap-3 mb-1">
           <div className="min-w-0">
+            {email.is_analyzed && (
+              <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                <PriorityBadge level={email.priority_level} score={email.priority_score} />
+                <CategoryBadge name={email.category_name} />
+                {email.action_required && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-blue-500/20 text-blue-200 border border-blue-400/40">
+                    <Zap className="w-2.5 h-2.5" /> Action Required
+                  </span>
+                )}
+              </div>
+            )}
             <p className="text-sm font-semibold text-white truncate">
               {email.sender_name || email.sender_email || 'Unknown Sender'}
             </p>
-            <p className="text-sm text-slate-300 truncate mt-0.5">
+            {email.sender_name && email.sender_email && (
+              <p className="text-xs text-slate-500 truncate mt-0.5">{email.sender_email}</p>
+            )}
+            <p className="text-sm text-slate-300 truncate mt-1">
               {email.subject || '(No subject)'}
             </p>
           </div>
@@ -48,14 +62,9 @@ export default function EmailCard({ email }: Props) {
         <div className="flex items-center gap-2 flex-wrap mt-2">
           {email.is_analyzed && (
             <>
-              <PriorityBadge level={email.priority_level} score={email.priority_score} />
-              <CategoryBadge name={email.category_name} />
               {email.intent && (
-                <span className="text-xs text-slate-500">{email.intent}</span>
-              )}
-              {email.action_required && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                  <Zap className="w-2.5 h-2.5" /> Action Required
+                <span className="text-xs text-slate-400 truncate" title={email.intent}>
+                  {email.intent}
                 </span>
               )}
             </>

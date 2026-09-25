@@ -74,9 +74,16 @@ export default function EmailDetail() {
       <div className="flex flex-col items-center justify-center h-64 gap-4 p-6">
         <AlertCircle className="w-10 h-10 text-red-400" />
         <p className="text-slate-400">{error ?? 'Email not found'}</p>
-        <button onClick={() => navigate('/inbox')} className="btn-secondary">
-          Back to Inbox
-        </button>
+        <div className="flex items-center gap-2">
+          {error && (
+            <button onClick={load} className="btn-primary flex items-center gap-1.5 text-xs">
+              <RefreshCw className="w-3.5 h-3.5" /> Retry
+            </button>
+          )}
+          <button onClick={() => navigate('/inbox')} className="btn-secondary">
+            Back to Inbox
+          </button>
+        </div>
       </div>
     )
   }
@@ -122,10 +129,18 @@ export default function EmailDetail() {
         </div>
       </div>
 
+      {reanalyzing && (
+        <div className="mx-6 mt-4 flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2.5 text-xs text-blue-200" role="status" aria-live="polite">
+          <RefreshCw className="h-3.5 w-3.5 animate-spin text-blue-400" />
+          Refreshing AI analysis...
+        </div>
+      )}
+
       {/* Main two-column layout */}
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-0 xl:gap-6 p-6">
         {/* LEFT: Email content */}
         <div className="xl:col-span-3 space-y-4">
+          <p className="px-1 text-xs font-bold uppercase tracking-wider text-slate-500">Email Content</p>
           {/* Email header */}
           <div className="card">
             <h1 className="text-xl font-bold text-white mb-4 leading-snug">
@@ -159,6 +174,7 @@ export default function EmailDetail() {
           </div>
 
           {/* Reply editor */}
+          <p className="px-1 pt-2 text-xs font-bold uppercase tracking-wider text-slate-500">Smart Reply</p>
           <ReplyEditor
             emailId={email.id}
             reply={email.reply}
@@ -168,6 +184,7 @@ export default function EmailDetail() {
 
         {/* RIGHT: AI analysis panel */}
         <div className="xl:col-span-2 space-y-0 mt-4 xl:mt-0">
+          <p className="px-1 pb-3 text-xs font-bold uppercase tracking-wider text-slate-500">AI Analysis</p>
           {email.is_analyzed && email.analysis ? (
             <AIInsightPanel
               analysis={email.analysis}
