@@ -1,0 +1,366 @@
+{
+  "dataset": {
+    "source": "imnim/multiclass-email-classification",
+    "license": "MIT",
+    "public_samples": 2105,
+    "unique_merged_samples": 2223,
+    "classes": 13,
+    "class_counts": {
+      "Customer Support": 41,
+      "E-commerce / Shopping": 12,
+      "Education": 12,
+      "Events / Invitations": 164,
+      "Finance / Banking": 251,
+      "Government / Official": 6,
+      "Healthcare": 10,
+      "Job / Career": 120,
+      "Notifications": 11,
+      "Promotions / Marketing": 226,
+      "Social / Personal": 219,
+      "Travel": 290,
+      "Work / Professional": 861
+    }
+  },
+  "split": {
+    "train": 1778,
+    "validation": 445,
+    "test": 445,
+    "random_state": 42
+  },
+  "validation_comparison": {
+    "baseline_svc": {
+      "accuracy": 0.8359550561797753,
+      "precision_macro": 0.5487929189942031,
+      "recall_macro": 0.5150666619639759,
+      "macro_f1": 0.5260532143124115,
+      "weighted_f1": 0.8241987641685306
+    },
+    "logistic_regression": {
+      "accuracy": 0.7865168539325843,
+      "precision_macro": 0.5755051221534437,
+      "recall_macro": 0.6557074022731963,
+      "macro_f1": 0.5982835161567326,
+      "weighted_f1": 0.7927701098496449
+    },
+    "balanced_svc": {
+      "accuracy": 0.8112359550561797,
+      "precision_macro": 0.5914475513219113,
+      "recall_macro": 0.6068001438283656,
+      "macro_f1": 0.5982392523703733,
+      "weighted_f1": 0.8105595111194795
+    }
+  },
+  "selected_model": "logistic_regression",
+  "test_metrics": {
+    "accuracy": 0.7887640449438202,
+    "precision_macro": 0.556414293020641,
+    "recall_macro": 0.5933923031437065,
+    "macro_f1": 0.5476354048976645,
+    "weighted_f1": 0.7745880979462549
+  },
+  "per_class": {
+    "Customer Support": {
+      "precision": 0.3333333333333333,
+      "recall": 0.375,
+      "f1-score": 0.35294117647058826,
+      "support": 8.0
+    },
+    "E-commerce / Shopping": {
+      "precision": 0.25,
+      "recall": 0.3333333333333333,
+      "f1-score": 0.2857142857142857,
+      "support": 3.0
+    },
+    "Education": {
+      "precision": 0.25,
+      "recall": 0.6666666666666666,
+      "f1-score": 0.36363636363636365,
+      "support": 3.0
+    },
+    "Events / Invitations": {
+      "precision": 0.5172413793103449,
+      "recall": 0.45454545454545453,
+      "f1-score": 0.4838709677419355,
+      "support": 33.0
+    },
+    "Finance / Banking": {
+      "precision": 0.86,
+      "recall": 0.86,
+      "f1-score": 0.86,
+      "support": 50.0
+    },
+    "Government / Official": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Healthcare": {
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1-score": 0.6666666666666666,
+      "support": 2.0
+    },
+    "Job / Career": {
+      "precision": 1.0,
+      "recall": 0.9583333333333334,
+      "f1-score": 0.9787234042553191,
+      "support": 24.0
+    },
+    "Notifications": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 2.0
+    },
+    "Promotions / Marketing": {
+      "precision": 0.9555555555555556,
+      "recall": 0.9555555555555556,
+      "f1-score": 0.9555555555555556,
+      "support": 45.0
+    },
+    "Social / Personal": {
+      "precision": 0.8461538461538461,
+      "recall": 0.25,
+      "f1-score": 0.38596491228070173,
+      "support": 44.0
+    },
+    "Travel": {
+      "precision": 0.9661016949152542,
+      "recall": 0.9827586206896551,
+      "f1-score": 0.9743589743589743,
+      "support": 58.0
+    },
+    "Work / Professional": {
+      "precision": 0.755,
+      "recall": 0.877906976744186,
+      "f1-score": 0.8118279569892473,
+      "support": 172.0
+    },
+    "accuracy": 0.7887640449438202,
+    "macro avg": {
+      "precision": 0.556414293020641,
+      "recall": 0.5933923031437065,
+      "f1-score": 0.5476354048976645,
+      "support": 445.0
+    },
+    "weighted avg": {
+      "precision": 0.7985624712803642,
+      "recall": 0.7887640449438202,
+      "f1-score": 0.7745880979462549,
+      "support": 445.0
+    }
+  },
+  "confusion_matrix": [
+    [
+      3,
+      0,
+      0,
+      0,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      3
+    ],
+    [
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1
+    ],
+    [
+      0,
+      1,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      2,
+      15,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      16
+    ],
+    [
+      0,
+      1,
+      0,
+      0,
+      43,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      4
+    ],
+    [
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      23,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1
+    ],
+    [
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      43,
+      0,
+      0,
+      1
+    ],
+    [
+      0,
+      0,
+      1,
+      6,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      11,
+      2,
+      23
+    ],
+    [
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      57,
+      0
+    ],
+    [
+      5,
+      0,
+      1,
+      7,
+      4,
+      0,
+      0,
+      0,
+      0,
+      2,
+      2,
+      0,
+      151
+    ]
+  ],
+  "confusion_matrix_labels": [
+    "Customer Support",
+    "E-commerce / Shopping",
+    "Education",
+    "Events / Invitations",
+    "Finance / Banking",
+    "Government / Official",
+    "Healthcare",
+    "Job / Career",
+    "Notifications",
+    "Promotions / Marketing",
+    "Social / Personal",
+    "Travel",
+    "Work / Professional"
+  ]
+}
