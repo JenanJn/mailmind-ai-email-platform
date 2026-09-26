@@ -22,10 +22,11 @@ export default function Login() {
     try {
       if (mode === 'login') {
         await login(email, password)
+        navigate('/')
       } else {
         await register(name, email, password)
+        navigate('/onboarding')
       }
-      navigate('/')
     } catch (err: any) {
       const msg = err?.response?.data?.detail
       setError(

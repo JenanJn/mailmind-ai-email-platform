@@ -7,6 +7,7 @@ import EmailDetail from './pages/EmailDetail'
 import Analytics from './pages/Analytics'
 import AddEmail from './pages/AddEmail'
 import Login from './pages/Login'
+import Onboarding from './pages/Onboarding'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth()
@@ -18,6 +19,14 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route
+          path="/onboarding"
+          element={
+            <PrivateRoute>
+              <Onboarding />
+            </PrivateRoute>
+          }
+        />
         <Route
           path="/"
           element={
