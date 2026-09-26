@@ -9,6 +9,14 @@ export interface EmailCreatePayload {
   received_at?: string
 }
 
+export interface IncomingEmailPayload {
+  sender: string
+  recipient: string
+  subject?: string
+  body: string
+  received_at?: string
+}
+
 export interface EmailListParams {
   page?: number
   page_size?: number
@@ -21,6 +29,9 @@ export interface EmailListParams {
 export const emailsApi = {
   create: (payload: EmailCreatePayload) =>
     apiClient.post<Email>('/emails', payload).then((r) => r.data),
+
+  incoming: (payload: IncomingEmailPayload) =>
+    apiClient.post<Email>('/api/emails/incoming', payload).then((r) => r.data),
 
   list: (params: EmailListParams = {}) =>
     apiClient.get<PaginatedEmails>('/emails', { params }).then((r) => r.data),

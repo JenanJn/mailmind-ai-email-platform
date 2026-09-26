@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PlusCircle, Sparkles, ChevronDown, ChevronUp, CheckCircle } from 'lucide-react'
 import { emailsApi } from '../api/emails'
+import { useAuth } from '../hooks/useAuth'
 
 // ── Sample emails for quick demo ──────────────────────────────────────────────
 const SAMPLE_EMAILS = [
@@ -189,6 +190,7 @@ GlobalTech`,
 
 export default function AddEmail() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [mode, setMode] = useState<'manual' | 'sample'>('manual')
   const [expandedSample, setExpandedSample] = useState<number | null>(null)
 
@@ -212,14 +214,17 @@ export default function AddEmail() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!body.trim()) { setError('Email body is required.'); return }
+    if (!senderEmail.trim()) { setError('Sender email is required.'); return }
+    if (!user?.email) { setError('Could not determine the authenticated user email.'); return }
     setLoading(true)
     setError(null)
     try {
-      const email = await emailsApi.create({
-        sender_name: senderName || undefined,
-        sender_email: senderEmail || undefined,
+      const email = await emailsApi.incoming({
+        sender: senderEmail.trim(),
+        recipient: user.email,
         subject: subject || undefined,
         body,
+        received_at: new Date().toISOString(),
       })
       navigate(`/inbox/${email.id}`)
     } catch (err: any) {
@@ -337,6 +342,7 @@ export default function AddEmail() {
                 value={senderEmail}
                 onChange={(e) => setSenderEmail(e.target.value)}
                 placeholder="e.g. hr@company.com"
+                required
                 className="input"
               />
             </div>
