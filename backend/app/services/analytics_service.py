@@ -111,7 +111,7 @@ class AnalyticsService:
             .group_by(func.date(Email.received_at))
             .order_by("date")
         )
-        daily_volume = [DailyVolume(date=row.date, count=row.cnt) for row in daily_result]
+        daily_volume = [DailyVolume(date=str(row.date), count=row.cnt) for row in daily_result]
 
         # ── Category distribution ────────────────────────────────────────
         cat_result = await self.db.execute(

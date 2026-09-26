@@ -4,11 +4,14 @@ Uses in-memory SQLite so no external DB is needed.
 """
 import pytest
 import pytest_asyncio
-from unittest.mock import patch
+from datetime import date
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
 from httpx import AsyncClient, ASGITransport
 
 from app.main import app
 from app.db.session import init_db
+from app.services.analytics_service import AnalyticsService
 
 
 @pytest_asyncio.fixture
@@ -353,6 +356,23 @@ class TestAnalytics:
         assert "category_distribution" in data
         assert "priority_distribution" in data
         assert "daily_volume" in data
+
+    @pytest.mark.asyncio
+    async def test_analytics_trends_converts_postgres_date_to_iso_string(self):
+        daily_result = MagicMock()
+        daily_result.__iter__.return_value = iter([
+            SimpleNamespace(date=date(2026, 9, 26), cnt=2),
+        ])
+        empty_result = MagicMock()
+        empty_result.all.return_value = []
+        empty_result.__iter__.return_value = iter([])
+        db = SimpleNamespace(
+            execute=AsyncMock(side_effect=[daily_result, empty_result, empty_result, empty_result]),
+        )
+
+        trends = await AnalyticsService(db).get_trends("user-id")
+
+        assert trends.daily_volume[0].date == "2026-09-26"
 
     @pytest.mark.asyncio
     async def test_analytics_insights_returns_data(self, client):
