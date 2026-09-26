@@ -4,6 +4,7 @@ from app.nlp.preprocessor import clean_email_text, extract_clean_for_classificat
 from app.nlp.intent_detector import detect_intent
 from app.nlp.sentiment_analyzer import analyze_sentiment
 from app.priority.engine import compute_priority
+from app.priority.signals import signal_action_required
 from app.nlp.pipeline import NLPPipeline
 
 
@@ -89,6 +90,17 @@ class TestSentimentAnalyzer:
 
 
 class TestPriorityEngine:
+    def test_sick_leave_request_requires_action(self):
+        email = (
+            "Hello, I am feeling unwell and would like to request sick leave "
+            "for today. Kindly grant me leave for the day."
+        )
+
+        score, _, action_required = signal_action_required(email)
+
+        assert action_required is True
+        assert score > 0
+
     @pytest.mark.parametrize("body", [
         "Please send the project status in two days.",
         "Please send the project status in 2 days.",

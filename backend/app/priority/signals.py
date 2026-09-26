@@ -74,6 +74,8 @@ ACTION_PATTERNS = [
     r"\bplease (let us|let me) know\b",
     r"\byour (confirmation|response|reply|approval) is (required|needed|requested)\b",
     r"\bkindly (confirm|reply|respond|submit)\b",
+    r"\b(?:request|requesting|requested)\s+(?:for\s+)?(?:a\s+)?(?:sick\s+)?leave\b",
+    r"\b(?:grant|approve)\s+(?:(?:me|my)\s+)?(?:the\s+)?(?:sick\s+)?leave\b",
     r"\bwaiting for your (response|reply|confirmation)\b",
     r"\bverify (your|the) (identity|account|details)\b",
     r"\bplease (verify|validate|confirm)\b",
