@@ -3,7 +3,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -21,7 +21,7 @@ from app.schemas.email import (
     EmailUpdate,
     PaginatedEmails,
 )
-from app.services.email_service import EmailService
+from app.services.email_service import EmailService, analyze_email_in_background
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -31,13 +31,15 @@ incoming_router = APIRouter()
 @router.post("", response_model=EmailOut, status_code=status.HTTP_201_CREATED)
 async def create_email(
     payload: EmailCreate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Add a new email and immediately trigger AI analysis."""
+    """Save an email and schedule AI analysis after returning it."""
     service = EmailService(db)
-    email, _snapshot = await service.create_and_analyze(payload, current_user.id)
-    # Reload with relationships
+    email = await service.create_pending_email(payload, current_user.id)
+    await db.commit()
+    background_tasks.add_task(analyze_email_in_background, email.id, current_user.id)
     result = await db.execute(
         select(Email)
         .options(
@@ -54,15 +56,16 @@ async def create_email(
 @incoming_router.post("/incoming", response_model=EmailOut, status_code=status.HTTP_201_CREATED)
 async def receive_incoming_email(
     payload: IncomingEmailCreate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Receive a provider/webhook email and run the existing analysis pipeline."""
+    """Save an incoming email and schedule the existing analysis pipeline."""
     if payload.recipient.casefold() != current_user.email.casefold():
         raise HTTPException(status_code=403, detail="Incoming email recipient does not match the authenticated user")
 
     service = EmailService(db)
-    email, _snapshot = await service.create_and_analyze(
+    email = await service.create_pending_email(
         EmailCreate(
             sender_email=payload.sender,
             subject=payload.subject,
@@ -71,6 +74,8 @@ async def receive_incoming_email(
         ),
         current_user.id,
     )
+    await db.commit()
+    background_tasks.add_task(analyze_email_in_background, email.id, current_user.id)
     email = await _get_email_or_404(email.id, current_user.id, db)
     return _email_to_out(email)
 

@@ -140,8 +140,8 @@ class TestAuth:
 
 class TestEmails:
     @pytest.mark.asyncio
-    async def test_create_email_triggers_analysis(self, client):
-        """Creating an email should auto-trigger NLP analysis."""
+    async def test_create_email_returns_pending_then_is_analyzed(self, client):
+        """Creating an email returns immediately while analysis runs in the background."""
         headers = await register_user(client)
 
         async def mock_analyze(self, email):
@@ -166,6 +166,11 @@ class TestEmails:
         data = resp.json()
         assert data["subject"] == "Interview Invitation"
         assert data["sender_name"] == "HR Team"
+        assert data["is_analyzed"] is False
+
+        detail = await client.get(f"/emails/{data['id']}", headers=headers)
+        assert detail.status_code == 200
+        assert detail.json()["is_analyzed"] is True
 
     @pytest.mark.asyncio
     async def test_list_emails_returns_paginated(self, client):
@@ -293,10 +298,15 @@ class TestIncomingEmails:
         assert resp.status_code == 201
         data = resp.json()
         assert data["sender_email"] == "hr@company.com"
-        assert data["is_analyzed"] is True
-        assert data["analysis"]["category_name"] == "Job / Career"
+        assert data["is_analyzed"] is False
+        assert data["analysis"] is None
         pipeline.return_value.process.assert_called_once()
         generate_reply.assert_called_once()
+
+        detail = await client.get(f"/emails/{data['id']}", headers=headers)
+        assert detail.status_code == 200
+        assert detail.json()["is_analyzed"] is True
+        assert detail.json()["analysis"]["category_name"] == "Job / Career"
 
         inbox = await client.get("/emails", headers=headers)
         assert inbox.status_code == 200
@@ -321,7 +331,10 @@ class TestIncomingEmails:
             }, headers=headers)
 
         assert resp.status_code == 201
-        assert resp.json()["reply"]["current_content"] == "Saved generated reply"
+        assert resp.json()["is_analyzed"] is False
+        detail = await client.get(f"/emails/{resp.json()['id']}", headers=headers)
+        assert detail.json()["is_analyzed"] is True
+        assert detail.json()["reply"]["current_content"] == "Saved generated reply"
 
     @pytest.mark.asyncio
     async def test_incoming_email_requires_authentication(self, client):

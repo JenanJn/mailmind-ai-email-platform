@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Mail, Clock, User, AtSign,
@@ -12,6 +12,9 @@ import { formatDateTime } from '../utils/dateFormat'
 import CategoryBadge from '../components/email/CategoryBadge'
 import PriorityBadge from '../components/email/PriorityBadge'
 
+const ANALYSIS_POLL_INTERVAL_MS = 1500
+const ANALYSIS_TIMEOUT_MS = 120000
+
 export default function EmailDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -20,13 +23,20 @@ export default function EmailDetail() {
   const [reanalyzing, setReanalyzing] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [analysisTimedOut, setAnalysisTimedOut] = useState(false)
+  const analysisStartedAt = useRef<number | null>(null)
 
   useEffect(() => {
     if (!id) return
+    analysisStartedAt.current = Date.now()
+    setEmail(null)
+    setAnalysisTimedOut(false)
     load()
   }, [id])
 
   const load = async () => {
+    analysisStartedAt.current = Date.now()
+    setAnalysisTimedOut(false)
     setLoading(true)
     setError(null)
     try {
@@ -38,6 +48,38 @@ export default function EmailDetail() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    if (!id || !email || email.is_analyzed || analysisTimedOut) return
+
+    let cancelled = false
+    const startedAt = analysisStartedAt.current ?? Date.now()
+    let pollTimeout: ReturnType<typeof setTimeout>
+    const deadlineTimeout = setTimeout(() => {
+      cancelled = true
+      setAnalysisTimedOut(true)
+    }, Math.max(0, startedAt + ANALYSIS_TIMEOUT_MS - Date.now()))
+
+    const poll = async () => {
+      if (cancelled) return
+      try {
+        const data = await emailsApi.get(id)
+        if (cancelled) return
+        setEmail(data)
+        if (!data.is_analyzed) pollTimeout = setTimeout(poll, ANALYSIS_POLL_INTERVAL_MS)
+      } catch {
+        if (!cancelled) setError('Could not load this email.')
+      }
+    }
+
+    pollTimeout = setTimeout(poll, ANALYSIS_POLL_INTERVAL_MS)
+
+    return () => {
+      cancelled = true
+      clearTimeout(pollTimeout)
+      clearTimeout(deadlineTimeout)
+    }
+  }, [id, email, analysisTimedOut])
 
   const handleReanalyze = async () => {
     setReanalyzing(true)
@@ -192,12 +234,16 @@ export default function EmailDetail() {
             />
           ) : (
             <div className="card text-center py-10">
-              <div className="w-12 h-12 rounded-full bg-blue-600/20 flex items-center justify-center mx-auto mb-3">
-                <RefreshCw className="w-6 h-6 text-blue-400 animate-spin" />
-              </div>
-              <p className="text-sm text-slate-400">AI analysis in progress...</p>
+              {!analysisTimedOut && (
+                <div className="w-12 h-12 rounded-full bg-blue-600/20 flex items-center justify-center mx-auto mb-3">
+                  <RefreshCw className="w-6 h-6 text-blue-400 animate-spin" />
+                </div>
+              )}
+              <p className="text-sm text-slate-400">
+                {analysisTimedOut ? 'Analysis is taking longer than expected.' : 'Analyzing email...'}
+              </p>
               <button onClick={load} className="btn-secondary text-xs mt-4">
-                Refresh
+                {analysisTimedOut ? 'Check again' : 'Refresh'}
               </button>
             </div>
           )}

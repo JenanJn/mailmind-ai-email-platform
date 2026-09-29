@@ -1,4 +1,6 @@
-from unittest.mock import patch
+import logging
+import threading
+from unittest.mock import AsyncMock, patch
 
 import pytest
 import pytest_asyncio
@@ -7,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.db.session import init_db
 from app.main import app
+from app.services.email_service import EmailService, analyze_email_in_background
 
 
 @pytest_asyncio.fixture
@@ -66,11 +69,14 @@ def mock_analysis_results():
 
 
 @pytest.mark.asyncio
-async def test_incoming_email_is_user_owned_and_analyzed(client):
+async def test_incoming_email_returns_pending_then_background_analysis_completes(client):
     headers = await register_user(client, "incoming@test.com")
     mock_nlp, mock_priority = mock_analysis_results()
+    main_thread_id = threading.get_ident()
+    analysis_thread_ids = []
 
-    with patch("app.services.email_service.get_pipeline") as pipeline, \
+    with patch("app.api.routes.emails.analyze_email_in_background", new_callable=AsyncMock) as task, \
+         patch("app.services.email_service.get_pipeline") as pipeline, \
          patch("app.services.email_service.compute_priority", return_value=mock_priority), \
          patch("app.genai.reply_generator.generate_reply", return_value="Interview reply") as generate_reply:
         pipeline.return_value.process.return_value = mock_nlp
@@ -85,14 +91,58 @@ async def test_incoming_email_is_user_owned_and_analyzed(client):
     assert response.status_code == 201
     data = response.json()
     assert data["sender_email"] == "hr@company.com"
-    assert data["is_analyzed"] is True
-    assert data["analysis"]["category_name"] == "Job / Career"
+    assert data["is_analyzed"] is False
+    assert data["analysis"] is None
+    assert data["entities"] is None
+    assert data["reply"] is None
+    task.assert_awaited_once_with(data["id"], task.await_args.args[1])
+
+    user_id = task.await_args.args[1]
+    with patch("app.services.email_service.get_pipeline") as pipeline, \
+         patch("app.services.email_service.compute_priority", return_value=mock_priority), \
+         patch("app.genai.reply_generator.generate_reply", return_value="Interview reply") as generate_reply:
+        pipeline.return_value.process.side_effect = lambda *_: (
+            analysis_thread_ids.append(threading.get_ident()) or mock_nlp
+        )
+        await analyze_email_in_background(data["id"], user_id)
+
+    result = await client.get(f"/emails/{data['id']}", headers=headers)
+    assert result.status_code == 200
+    assert result.json()["is_analyzed"] is True
+    assert result.json()["analysis"]["category_name"] == "Job / Career"
+    assert analysis_thread_ids[0] != main_thread_id
     pipeline.return_value.process.assert_called_once()
     generate_reply.assert_called_once()
+
+    with patch.object(EmailService, "analyze_email", new_callable=AsyncMock) as analyze:
+        await analyze_email_in_background(data["id"], user_id)
+        analyze.assert_not_awaited()
 
     inbox = await client.get("/emails", headers=headers)
     assert inbox.json()["total"] == 1
     assert inbox.json()["items"][0]["subject"] == "Interview Invitation"
+
+
+@pytest.mark.asyncio
+async def test_background_analysis_logs_failure_and_keeps_email_pending(client, caplog):
+    headers = await register_user(client, "analysis-failure@test.com")
+    with patch("app.api.routes.emails.analyze_email_in_background", new_callable=AsyncMock) as task:
+        response = await client.post("/api/emails/incoming", json={
+            "sender": "sender@example.com",
+            "recipient": "analysis-failure@test.com",
+            "subject": "Pending",
+            "body": "This email will remain pending.",
+        }, headers=headers)
+
+    email_id, user_id = task.await_args.args
+    with patch.object(EmailService, "_compute_analysis", side_effect=RuntimeError("analysis failed")), \
+         caplog.at_level(logging.ERROR, logger="app.services.email_service"):
+        await analyze_email_in_background(email_id, user_id)
+
+    assert "Background analysis failed" in caplog.text
+    detail = await client.get(f"/emails/{email_id}", headers=headers)
+    assert detail.status_code == 200
+    assert detail.json()["is_analyzed"] is False
 
 
 @pytest.mark.asyncio
@@ -112,7 +162,10 @@ async def test_incoming_email_returns_saved_reply(client):
         }, headers=headers)
 
     assert response.status_code == 201
-    assert response.json()["reply"]["current_content"] == "Saved generated reply"
+    assert response.json()["is_analyzed"] is False
+    detail = await client.get(f"/emails/{response.json()['id']}", headers=headers)
+    assert detail.json()["is_analyzed"] is True
+    assert detail.json()["reply"]["current_content"] == "Saved generated reply"
 
 
 @pytest.mark.asyncio
