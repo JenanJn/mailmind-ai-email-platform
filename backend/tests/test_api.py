@@ -2,6 +2,7 @@
 API integration tests.
 Uses in-memory SQLite so no external DB is needed.
 """
+import threading
 import pytest
 import pytest_asyncio
 from datetime import date
@@ -77,6 +78,26 @@ def _mock_priority_result():
 # ── Health ────────────────────────────────────────────────────────────────────
 
 class TestHealth:
+    @pytest.mark.asyncio
+    async def test_startup_warms_nlp_pipeline_in_worker_thread(self):
+        event_loop_thread = threading.get_ident()
+        calls = []
+
+        def process(subject, body):
+            calls.append((threading.get_ident(), subject, body))
+
+        pipeline = SimpleNamespace(process=process)
+        with patch("app.main.init_db", new_callable=AsyncMock), \
+             patch("app.main.get_pipeline", return_value=pipeline):
+            async with app.router.lifespan_context(app):
+                pass
+
+        assert len(calls) == 1
+        worker_thread, subject, body = calls[0]
+        assert worker_thread != event_loop_thread
+        assert subject == "Startup warm-up"
+        assert body == "Please confirm the project update."
+
     @pytest.mark.asyncio
     async def test_health_check(self, client):
         resp = await client.get("/health")

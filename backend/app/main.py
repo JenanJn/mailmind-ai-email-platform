@@ -4,12 +4,14 @@ AI Email Classifier — FastAPI application entry point.
 import logging
 from contextlib import asynccontextmanager
 
+import anyio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.db.session import init_db
 from app.api.routes import emails, analytics, categories, replies, health, auth
+from app.nlp.pipeline import get_pipeline
 
 logging.basicConfig(
     level=logging.DEBUG if settings.debug else logging.INFO,
@@ -24,6 +26,14 @@ async def lifespan(app: FastAPI):
     logger.info("Starting AI Email Classifier API...")
     await init_db()
     logger.info("Database initialized.")
+    try:
+        await anyio.to_thread.run_sync(
+            get_pipeline().process,
+            "Startup warm-up",
+            "Please confirm the project update.",
+        )
+    except Exception:
+        logger.exception("NLP pipeline startup warm-up failed; continuing startup.")
     yield
     logger.info("Shutting down.")
 
