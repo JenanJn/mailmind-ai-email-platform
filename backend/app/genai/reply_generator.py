@@ -6,6 +6,7 @@ Falls back to a template-based reply if the API is unavailable.
 """
 import logging
 import re
+import time
 from typing import Optional
 
 from app.config import settings
@@ -51,39 +52,18 @@ def generate_reply(
     entities: list[dict],
     tone: str = "formal",
     action: Optional[str] = None,
+    email_id: Optional[str] = None,
 ) -> str:
     """
     Generate a contextual email reply using Gemini.
     Falls back to template if API unavailable.
     """
-    model = _get_model()
-    detected_action = action or _infer_action(body, action_required)
-    prompt = build_generation_prompt(
-        subject=subject,
-        body=body,
-        sender_name=sender_name,
-        category=category,
-        category_slug=category_slug,
-        intent=intent,
-        action_required=action_required,
-        deadline_text=deadline_text,
-        entities=entities,
-        tone=tone,
-        action=detected_action,
-    )
-
-    if model is None:
-        return _template_fallback(category_slug, sender_name, intent, deadline_text, detected_action)
-
+    generation_started = time.perf_counter()
+    validation_retry = False
     try:
-        response = model.generate_content(prompt)
-        reply = response.text.strip()
-        if not reply:
-            return _template_fallback(category_slug, sender_name, intent, deadline_text, detected_action)
-        if _validate_reply(reply, action_required, detected_action, deadline_text):
-            return reply
-
-        retry_prompt = build_generation_prompt(
+        model = _get_model()
+        detected_action = action or _infer_action(body, action_required)
+        prompt = build_generation_prompt(
             subject=subject,
             body=body,
             sender_name=sender_name,
@@ -95,16 +75,67 @@ def generate_reply(
             entities=entities,
             tone=tone,
             action=detected_action,
-            correction_instruction=_validation_feedback(action_required, detected_action, deadline_text),
         )
-        retry_response = model.generate_content(retry_prompt)
-        retry_reply = retry_response.text.strip()
-        if retry_reply and _validate_reply(retry_reply, action_required, detected_action, deadline_text):
-            return retry_reply
-        return _template_fallback(category_slug, sender_name, intent, deadline_text, detected_action)
-    except Exception as e:
-        logger.error("Gemini API error: %s. Using fallback.", e)
-        return _template_fallback(category_slug, sender_name, intent, deadline_text, detected_action)
+
+        if model is None:
+            return _template_fallback(category_slug, sender_name, intent, deadline_text, detected_action)
+
+        try:
+            response = _generate_content_timed(model, prompt, 1, email_id)
+            reply = response.text.strip()
+            if not reply:
+                return _template_fallback(category_slug, sender_name, intent, deadline_text, detected_action)
+            if _validate_reply(reply, action_required, detected_action, deadline_text):
+                return reply
+
+            retry_prompt = build_generation_prompt(
+                subject=subject,
+                body=body,
+                sender_name=sender_name,
+                category=category,
+                category_slug=category_slug,
+                intent=intent,
+                action_required=action_required,
+                deadline_text=deadline_text,
+                entities=entities,
+                tone=tone,
+                action=detected_action,
+                correction_instruction=_validation_feedback(action_required, detected_action, deadline_text),
+            )
+            validation_retry = True
+            retry_response = _generate_content_timed(model, retry_prompt, 2, email_id)
+            retry_reply = retry_response.text.strip()
+            if retry_reply and _validate_reply(retry_reply, action_required, detected_action, deadline_text):
+                return retry_reply
+            return _template_fallback(category_slug, sender_name, intent, deadline_text, detected_action)
+        except Exception as e:
+            logger.error("Gemini API error: %s. Using fallback.", e)
+            return _template_fallback(category_slug, sender_name, intent, deadline_text, detected_action)
+    finally:
+        logger.info(
+            "email_analysis_latency event=reply_generation email_id=%s duration_ms=%.2f validation_retry=%s",
+            email_id or "unknown",
+            (time.perf_counter() - generation_started) * 1000,
+            str(validation_retry).lower(),
+        )
+
+
+def _generate_content_timed(model, prompt: str, attempt: int, email_id: Optional[str]):
+    attempt_started = time.perf_counter()
+    outcome = "success"
+    try:
+        return model.generate_content(prompt)
+    except Exception:
+        outcome = "failed"
+        raise
+    finally:
+        logger.info(
+            "email_analysis_latency event=gemini_attempt email_id=%s attempt=%d duration_ms=%.2f outcome=%s",
+            email_id or "unknown",
+            attempt,
+            (time.perf_counter() - attempt_started) * 1000,
+            outcome,
+        )
 
 
 def _infer_action(body: str, action_required: bool) -> Optional[str]:

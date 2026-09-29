@@ -9,6 +9,7 @@ Flow:
   5. Persist analysis, entities, and reply using explicit SQL (no lazy loads)
 """
 import logging
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional
@@ -71,12 +72,14 @@ class EmailService:
         """
         nlp_result, priority_result, reply_text = await anyio.to_thread.run_sync(
             self._compute_analysis,
+            email.id,
             email.subject or "",
             email.body or "",
             email.sender_name,
             email.sender_email,
         )
 
+        persistence_started = time.perf_counter()
         # ── Step 1: Persist (bulk deletes avoid lazy-load triggers) ───────
         await self.db.execute(
             sql_delete(EmailAnalysis).where(EmailAnalysis.email_id == email.id)
@@ -136,6 +139,11 @@ class EmailService:
 
         email.is_analyzed = True
         await self.db.flush()
+        logger.info(
+            "email_analysis_latency event=persistence email_id=%s duration_ms=%.2f",
+            email.id,
+            (time.perf_counter() - persistence_started) * 1000,
+        )
 
         logger.info(
             "Email %s analyzed: %s | priority=%d/%s",
@@ -151,23 +159,40 @@ class EmailService:
 
     @staticmethod
     def _compute_analysis(
+        email_id: str,
         subject: str,
         body: str,
         sender_name: Optional[str],
         sender_email: Optional[str],
     ) -> tuple[NLPResult, PriorityResult, str]:
         pipeline = get_pipeline()
-        nlp_result: NLPResult = pipeline.process(subject, body)
+        nlp_started = time.perf_counter()
+        try:
+            nlp_result: NLPResult = pipeline.process(subject, body)
+        finally:
+            logger.info(
+                "email_analysis_latency event=stage email_id=%s stage=nlp_ml duration_ms=%.2f",
+                email_id,
+                (time.perf_counter() - nlp_started) * 1000,
+            )
 
-        priority_result: PriorityResult = compute_priority(
-            subject,
-            body,
-            nlp_result.category_slug,
-            sender_email,
-            action_required=nlp_result.action_required,
-            deadline_text=nlp_result.deadline_text,
-            deadline_datetime=nlp_result.deadline_datetime,
-        )
+        priority_started = time.perf_counter()
+        try:
+            priority_result: PriorityResult = compute_priority(
+                subject,
+                body,
+                nlp_result.category_slug,
+                sender_email,
+                action_required=nlp_result.action_required,
+                deadline_text=nlp_result.deadline_text,
+                deadline_datetime=nlp_result.deadline_datetime,
+            )
+        finally:
+            logger.info(
+                "email_analysis_latency event=stage email_id=%s stage=priority duration_ms=%.2f",
+                email_id,
+                (time.perf_counter() - priority_started) * 1000,
+            )
 
         from app.genai.reply_generator import generate_reply
         entities_for_prompt = [
@@ -184,6 +209,7 @@ class EmailService:
             priority_result.action_required,
             nlp_result.deadline_text,
             entities_for_prompt,
+            email_id=email_id,
         )
         return nlp_result, priority_result, reply_text
 
@@ -212,19 +238,46 @@ class EmailService:
 
 async def analyze_email_in_background(email_id: str, user_id: str) -> None:
     """Analyze a persisted email in a fresh session; safe to invoke again."""
+    analysis_started = time.perf_counter()
+    outcome = "failed"
     try:
         async with db_session.AsyncSessionLocal() as db:
             result = await db.execute(
                 select(Email).where(Email.id == email_id, Email.user_id == user_id)
             )
             email = result.scalar_one_or_none()
-            if email is None or email.is_analyzed:
+            if email is None:
+                outcome = "missing"
+                return
+            if email.is_analyzed:
+                outcome = "already_analyzed"
                 return
 
             await EmailService(db).analyze_email(email)
-            await db.commit()
+            commit_started = time.perf_counter()
+            commit_outcome = "success"
+            try:
+                await db.commit()
+            except Exception:
+                commit_outcome = "failed"
+                raise
+            finally:
+                logger.info(
+                    "email_analysis_latency event=commit email_id=%s duration_ms=%.2f outcome=%s",
+                    email_id,
+                    (time.perf_counter() - commit_started) * 1000,
+                    commit_outcome,
+                )
+            outcome = "completed"
     except Exception:
         logger.exception("Background analysis failed for email %s", email_id)
+    finally:
+        logger.info(
+            "email_analysis_latency event=background_complete email_id=%s duration_ms=%.2f outcome=%s",
+            email_id,
+            (time.perf_counter() - analysis_started) * 1000,
+            outcome,
+        )
 
 
 # Type alias for the tuple returned by create_and_analyze
