@@ -18,6 +18,7 @@ import { formatDateTime } from '../../utils/dateFormat'
 
 interface Props {
   emailId: string
+  isAnalyzed: boolean
   reply: Reply | null
   onReplyUpdate: (reply: Reply) => void
 }
@@ -31,7 +32,7 @@ const STYLE_OPTIONS: { value: StyleOption; label: string; desc: string }[] = [
   { value: 'longer',   label: 'More Detail',  desc: 'Expand the reply' },
 ]
 
-export default function ReplyEditor({ emailId, reply, onReplyUpdate }: Props) {
+export default function ReplyEditor({ emailId, isAnalyzed, reply, onReplyUpdate }: Props) {
   const [content, setContent] = useState(reply?.current_content ?? '')
   const [isEditing, setIsEditing] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -45,6 +46,11 @@ export default function ReplyEditor({ emailId, reply, onReplyUpdate }: Props) {
   useEffect(() => {
     setContent(reply?.current_content ?? '')
     setHistory(reply?.versions ?? [])
+    if (reply?.current_content) {
+      setError((currentError) =>
+        currentError === 'Failed to generate reply. Please try again.' ? null : currentError,
+      )
+    }
   }, [reply])
 
   const handleGenerate = async () => {
@@ -158,7 +164,7 @@ export default function ReplyEditor({ emailId, reply, onReplyUpdate }: Props) {
           </p>
           <button
             onClick={handleGenerate}
-            disabled={isLoading}
+            disabled={isLoading || !isAnalyzed}
             className="btn-primary flex items-center gap-2 mx-auto"
           >
             {isLoading ? (

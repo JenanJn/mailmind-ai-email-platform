@@ -219,6 +219,7 @@ export default function EmailDetail() {
           <p className="px-1 pt-2 text-xs font-bold uppercase tracking-wider text-slate-500">Smart Reply</p>
           <ReplyEditor
             emailId={email.id}
+            isAnalyzed={email.is_analyzed}
             reply={email.reply}
             onReplyUpdate={handleReplyUpdate}
           />
