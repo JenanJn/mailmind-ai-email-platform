@@ -206,6 +206,18 @@ DEBUG=false
 
 The application continues to use SQLite locally when `DATABASE_URL` is not set. Render provides `PORT`; the fallback `10000` is only for local command testing.
 
+## PySpark Batch Analytics
+
+PySpark is excluded from the API requirements. To run the offline batch analytics, use a separate environment with Java available:
+
+```powershell
+cd backend
+python -m venv .venv-pyspark
+.venv-pyspark\Scripts\Activate.ps1
+pip install -r requirements-pyspark.txt
+python -m scripts.run_pyspark_analytics
+```
+
 ### Step 4 — Start the Frontend
 
 Open a **second** terminal in the project root:
@@ -268,6 +280,15 @@ npm run dev
 ---
 
 ## Running Tests
+
+The test suite includes PySpark tests. Install the batch/test dependencies into the test environment before running it:
+
+```powershell
+cd backend
+.venv\Scripts\Activate.ps1
+pip install -r requirements-pyspark.txt
+cd ..
+```
 
 ```powershell
 .\run_tests.ps1

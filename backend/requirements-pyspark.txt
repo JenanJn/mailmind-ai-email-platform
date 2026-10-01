@@ -1,0 +1,4 @@
+-r requirements.txt
+
+# Batch analytics
+pyspark==3.5.1
