@@ -1,7 +1,8 @@
 """Run the offline Spark analytics demo with an in-memory email dataset.
 
-Run: python -m scripts.run_pyspark_analytics (from the backend/ directory)
+Run: python -m scripts.run_pyspark_analytics [--output-dir PATH] (from backend/)
 """
+import argparse
 import asyncio
 import sys
 from pathlib import Path
@@ -12,6 +13,7 @@ from app.analytics.pyspark_batch import (
     aggregate_email_batch,
     create_spark_session,
     load_analyzed_email_records,
+    write_email_batch_parquet,
 )
 
 
@@ -34,6 +36,15 @@ EMAILS = [
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Run PySpark email batch analytics.")
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path(__file__).resolve().parent.parent / "data" / "analytics",
+        help="Directory in which to write the Parquet datasets.",
+    )
+    args = parser.parse_args()
+
     records = asyncio.run(load_analyzed_email_records())
     if not records:
         print("No analyzed email records found; nothing to aggregate.")
@@ -48,6 +59,11 @@ def main() -> None:
         for name, dataframe in aggregations.items():
             print(f"\n{name.replace('_', ' ').title()}")
             dataframe.show(truncate=False)
+
+        locations = write_email_batch_parquet(aggregations, args.output_dir)
+        print("\nParquet datasets written:")
+        for name, location in locations.items():
+            print(f"{name}: {location}")
     finally:
         spark.stop()
 

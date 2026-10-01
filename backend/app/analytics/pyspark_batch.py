@@ -1,6 +1,7 @@
 """Offline Spark aggregations for email analytics batch jobs."""
 import os
 import sys
+from pathlib import Path
 from typing import TypedDict
 
 from sqlalchemy import select
@@ -136,3 +137,17 @@ def aggregate_email_batch(emails: DataFrame) -> EmailBatchAggregations:
             ).alias("action_required_count")
         ),
     }
+
+
+def write_email_batch_parquet(
+    aggregations: EmailBatchAggregations,
+    output_dir: str | Path,
+) -> dict[str, Path]:
+    """Write each email batch aggregation as a Parquet dataset."""
+    output_path = Path(output_dir)
+    locations: dict[str, Path] = {}
+    for name, dataframe in aggregations.items():
+        dataset_path = output_path / name
+        dataframe.write.mode("overwrite").parquet(str(dataset_path))
+        locations[name] = dataset_path
+    return locations

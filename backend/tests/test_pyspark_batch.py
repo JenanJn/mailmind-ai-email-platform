@@ -4,8 +4,13 @@ import sys
 
 import pytest
 from pyspark.sql import SparkSession
+from pyspark.sql.readwriter import DataFrameWriter
 
-from app.analytics.pyspark_batch import aggregate_email_batch, create_spark_session
+from app.analytics.pyspark_batch import (
+    aggregate_email_batch,
+    create_spark_session,
+    write_email_batch_parquet,
+)
 
 
 @pytest.fixture(scope="module")
@@ -83,3 +88,36 @@ def test_aggregates_records_with_datetime_received_at(spark: SparkSession):
     }
 
     assert daily == {date(2025, 3, 1): 1, date(2025, 3, 2): 1}
+
+
+def test_writes_each_aggregation_as_parquet(spark: SparkSession, tmp_path, monkeypatch):
+    rows = [
+        ("e1", "2025-03-01T10:00:00", "Work", 80.0, "high", "positive", True, "reply"),
+        ("e2", "2025-03-02T11:30:00", "Personal", 40.0, "medium", "neutral", False, "review"),
+    ]
+    columns = [
+        "email_id", "received_at", "category", "priority_score", "priority_level",
+        "sentiment", "action_required", "intent",
+    ]
+    aggregations = aggregate_email_batch(spark.createDataFrame(rows, columns))
+    write_calls = []
+
+    def record_mode(writer, mode):
+        writer.test_mode = mode
+        return writer
+
+    def record_parquet(writer, path, **options):
+        write_calls.append((writer.test_mode, path))
+
+    monkeypatch.setattr(DataFrameWriter, "mode", record_mode)
+    monkeypatch.setattr(DataFrameWriter, "parquet", record_parquet)
+
+    locations = write_email_batch_parquet(aggregations, tmp_path / "analytics")
+
+    assert set(locations) == set(aggregations)
+    for name, location in locations.items():
+        assert location == tmp_path / "analytics" / name
+    assert write_calls == [
+        ("overwrite", str(tmp_path / "analytics" / name))
+        for name in aggregations
+    ]
